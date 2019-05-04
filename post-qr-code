@@ -1,1 +1,137 @@
+<?php
+/*
+Plugin Name: Post link with QR Code
+Plugin URI: http://cotechit.com/post-qrcode
+Description: QR Code display under every post.
+Version: 1.0
+Author: Cotech Team
+Author URI: http://cotechit.com/
+License: GPLv2 or later
+Text Domain: qrcode
+Domain Path: /languages/
+*/
 
+/*  This function use for text domain load */
+function qrc_load_textdomain(){
+	load_plugin_textdomain( 'qrcode', false, dirname(__FILE__)."/languages" );
+}
+add_action('plugins_loaded', 'qrc_load_textdomain');
+$pqrc_countries = array(
+    __( 'Afganistan', 'posts-to-qrcode' ),
+    __( 'Bangladesh', 'posts-to-qrcode' ),
+    __( 'Bhutan', 'posts-to-qrcode' ),
+    __( 'India', 'posts-to-qrcode' ),
+    __( 'Maldives', 'posts-to-qrcode' ),
+    __( 'Nepal', 'posts-to-qrcode' ),
+    __( 'Pakistan', 'posts-to-qrcode' ),
+    __( 'Sri Lanka', 'posts-to-qrcode' ),
+);
+
+
+function qrc_display_post_qr_code($content)
+{
+	$current_post_id = get_the_ID();
+	$current_post_title = get_the_title( $current_post_id );
+	$current_post_url = urlencode(get_the_permalink( $current_post_id ));
+	$current_post_type = get_post_type($current_post_id);
+	/*
+		Post type check hook 
+	*/
+	$excluded_post_type = apply_filters( 'qrc_excluded_post_type', array());
+	if(in_array($current_post_type, $excluded_post_type)){
+		return $content;
+	}
+	/*
+		QR Code image Drimention 
+	*/
+	$height = get_option('qrc_height');
+	$width = get_option('qrc_width');
+	$height = $height ? $height : 180;
+	$width = $width ? $width : 180;
+	$dimension 	= apply_filters('qrc_dimension', "{$width}x{$height}");
+
+	$image_src	=	sprintf('https://api.qrserver.com/v1/create-qr-code/?size=%s&data=%s', $dimension, $current_post_url);	
+	$content 	.= sprintf("<div class='post-qr-code'><img src='%s' alt='%s' /></div>", $image_src, $current_post_title);
+	return $content;
+}
+add_filter('the_content', 'qrc_display_post_qr_code');
+
+
+/* Plugin Setting Options */
+function qrc_setting_options()
+{
+	add_settings_section( 'qrc_sections', __('QR Code Setting Sections', 'qrcode'), 'qrc_setting_sections', 'general' );
+
+	add_settings_field( 'qrc_height', __('QR Code image height', 'qrcode'), 'qrc_option_fields', 'general', 'qrc_sections', array('qrc_height') );
+
+	add_settings_field( 'qrc_width', __('QR Code image width', 'qrcode'), 'qrc_option_fields', 'general','qrc_sections', array('qrc_width') );
+
+	add_settings_field( 'qrc_select', __('Select post type', 'qrcode'), 'qrc_option_select_field', 'general','qrc_sections');
+ 	add_settings_field( 'pqrc_select', __( 'Dropdown', 'qrcode' ), 'pqrc_display_select_field', 'general', 'qrc_sections' );
+ 	
+	register_setting( 'general', 'qrc_height', array('sanitize_callback'=>'esc_attr') );
+	register_setting( 'general', 'qrc_width', array('sanitize_callback'=>'esc_attr') );
+	register_setting( 'general', 'pqrc_select', array('sanitize_callback'=>'esc_attr') );
+	register_setting( 'general', 'qrc_select', array('sanitize_callback'=>'esc_attr') );
+}
+function qrc_setting_sections()
+{
+	echo "<p>".__('Settings for QR Code Plugin', 'qrcode')."</p>";
+}
+
+function qrc_option_fields($args)
+{
+	$options = get_option($args[0]);
+	printf('<input type="text" id="%s" name="%s" value="%s" />', $args[0], $args[0], $options);
+}
+
+function pqrc_display_select_field() {
+    global $pqrc_countries;
+    $option = get_option( 'pqrc_select' );
+
+    printf( '<select id="%s" name="%s">', 'pqrc_select', 'pqrc_select' );
+    foreach ( $pqrc_countries as $country ) {
+        $selected = '';
+        if ( $option == $country ) {
+            $selected = 'selected';
+        }
+        printf( '<option value="%s" %s>%s</option>', $country, $selected, $country );
+    }
+    echo "</select>";
+}
+
+
+
+
+
+function qrc_option_select_field()
+{
+	$option = get_option('qrc_select');
+	$post_types = array(
+		'None',
+		'post',
+		'page',
+	);
+	printf("<select id='%s' name='%s'>", 'qrc_select', 'qrc_select');
+	foreach ($post_types as $post) {
+		$selected = '';
+		if($option == $post){
+			$selected= 'selected';
+		} 
+		printf("<option  value='%s' '%s'>%s</option>", $post, $selected, $post);
+	}
+	echo "</select>";
+}
+
+
+/*function qrc_height_show()
+{
+	$height = get_option('qrc_height');
+	printf('<input type="text" id="%s" name="%s" value="%s" />', 'qrc_height', 'qrc_height', $height);
+}
+function qrc_width_show()
+{
+	$width = get_option('qrc_width');
+	printf('<input type="text" id="%s" name="%s" value="%s" />', 'qrc_width', 'qrc_width', $width);
+}*/
+add_action('admin_init', 'qrc_setting_options');
